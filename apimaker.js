@@ -56,7 +56,7 @@ var API = function(uri_object) {
   for(var n in uri_object.queryKey) {
     var key_capitalized = n.charAt(0).toUpperCase() + n.substring(1).toLowerCase();
     self.data[n] = uri_object.queryKey[n];
-    self["get" + key_capitalized] = function(val) {
+    self["get" + key_capitalized] = function() {
       var key = n+'';
       return function(){  return self.data[key]; }
     }();
