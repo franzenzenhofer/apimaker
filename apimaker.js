@@ -1,8 +1,11 @@
 //apimaker
 var parseuri = require("./lib/parseuri.js");
 
+var debugIt=!1,enableDebug=function(a){debugIt=a||!1;return this},d=function(a){if(debugIt)if(typeof a==="function")return a();else console.log(">>>>DEBUG"),console.log(a),console.log("<<<<DEBUG")};
+
 var createUriDataString = function(data)
 {
+  d(data);
   var data_string = '';
     var z = 0;
     for(var key in data) {
@@ -67,11 +70,12 @@ var API = function(uri_object) {
       return function(val){  self.data[key] = val; return self; }
     }();
   }
-  return self
+  return self;
 };
 API.prototype.request = function(method, data, callback) {
   var self = this;
   var method = method || "GET";
+  d(data);
   var data = data || {};
   var callback = callback || self.callback || undefined;
   var path = self.dataath;
@@ -82,6 +86,8 @@ API.prototype.request = function(method, data, callback) {
   
   if(!self.sendDataAsRaw)
   {
+    d("data mixin");
+    d(data);
     var newdata = {};
     for(var n in self.data) {
     newdata[n] = self.data[n]
@@ -94,7 +100,9 @@ API.prototype.request = function(method, data, callback) {
   
   if(method === 'GET' || method === 'DELETE' )
   {
+    //d("GET GET GET GET GET");
     path = path + '?' + createUriDataString(data);
+    d('GET path:' + path);
   }
   else if(method === 'POST' || method === 'PUT')
   {
@@ -119,6 +127,7 @@ API.prototype.request = function(method, data, callback) {
   }
   
   var options = {host:self.host, port:self.dataort, path:path, method:method};
+  d(options);
   //console.log(options);
   //console.log(data);
   var req = self.connector.request(options, function(res) {
@@ -139,7 +148,7 @@ API.prototype.request = function(method, data, callback) {
     req.setHeader(z, self.headers[z]);
   }
   
-  if(data)
+  if(data && (method === 'POST' || method === 'PUT'))
   {
     //req.setHeader('Content-Length', data.length*2)
     if(self.sendDataAsJson)
@@ -154,21 +163,23 @@ API.prototype.request = function(method, data, callback) {
   })
   return self;
 };
-API.prototype.GET = function(params, callback) {
+API.prototype.GET = function(data, callback) {
   var self = this;
-  return self.request("GET", params, callback)
+  d(self);
+  d(data);
+  return self.request("GET", data, callback)
 };
-API.prototype.POST = function(params, callback) {
+API.prototype.POST = function(data, callback) {
   var self = this;
-  return self.request("POST", params, callback)
+  return self.request("POST", data, callback)
 };
-API.prototype.PUT = function(params, callback) {
+API.prototype.PUT = function(data, callback) {
   var self = this;
-  return self.request("PUT", params, callback)
+  return self.request("PUT", data, callback)
 };
-API.prototype.DELETE = function(params, callback) {
+API.prototype.DELETE = function(data, callback) {
   var self = this;
-  return self.request("DELETE", params, callback)
+  return self.request("DELETE", data, callback)
 };
 API.prototype.addStatusCodeCallback = function(statusCode, callback) {
   var self = this;
@@ -242,6 +253,7 @@ var createAPI = function(uri_string) {
 
 module.exports = createAPI;
 module.exports.create = module.exports;
+module.exports.enableDebug = enableDebug;
 
 
 /*var api = createAPI("http://tupalo.com/de/api/easy/v1/spots?origin=&name=");
