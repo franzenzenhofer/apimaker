@@ -1,0 +1,16 @@
+{
+  "name"          : "apimaker",
+  "description"   : "uri-string to api conversion tool",
+  "url"           : "https://github.com/franzenzenhofer/apimaker",
+  "keywords"      : ["API", "URI", "URL"],
+  "author"        : "Franz Enzenhofer <f.enzenhofer@gmail.com>",
+  "contributors"  : [],
+  "licenses": [
+     {
+        "type": "MIT"
+     }
+   ],
+  "dependencies"  : [],
+  "main"          : "./apimaker.js",
+  "version"       : "0.0.1-0"
+}
