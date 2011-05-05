@@ -30,29 +30,37 @@ var createUriDataString = function(data)
 
 
 var API = function(uri_object) {
-  var self = this;
+  //var self = this;
+  var f = function(data,callback,method)
+  {
+    return self.request(data,callback,method);
+  }
+  self = f;
   self.host = uri_object.host;
-  self.dataassword = uri_object.password;
+  self.password = uri_object.password;
   self.user = uri_object.password;
-  self.datarotocol = uri_object.protocol;
-  self.connector = require(self.datarotocol);
+  self.protocol = uri_object.protocol;
+  self.connector = require(self.protocol);
   self.source = uri_object.source;
-  self.dataort = uri_object.port;
-  self.dataath = uri_object.path;
+  self.port = uri_object.port;
+  self.path = uri_object.path;
   self.staticPath = undefined;
   self.callback = function(d){console.log(d);};
   self.statusCodeCallbacks = {};
+  self.partialCallback = undefined;
   self.sendDataAsJson = false;
   self.sendDataAsRaw = false;
   self.headers = {};
+  self.defaultMethod = 'GET';
+  //console.log(self.defaultMethod);
   self.errorCallback = function(e) {
     throw new Error(e);
   };
-  if(!self.dataort) {
-    if(self.datarotocol === "https") {
-      self.dataort = 443
+  if(!self.port) {
+    if(self.protocol === "https") {
+      self.port = 443
     }else {
-      self.dataort = 80
+      self.port = 80
     }
   }
   self.data = {};
@@ -70,17 +78,39 @@ var API = function(uri_object) {
       return function(val){  self.data[key] = val; return self; }
     }();
   }
-  return self;
+
+  //does not work, as we do not create a new F
+  f.prototype = API.prototype;
+  //we mixin the API prototype
+  for(var i in API.prototype)
+  {
+    if(API.prototype.hasOwnProperty(i))
+    {
+      if(typeof API.prototype[i] === 'function')
+      {
+        //console.log('functions'+i);
+        f[i]=function(){ var funcname = i+''; return function() { d(funcname); API.prototype[funcname].apply(self,arguments); } }();
+      }
+      else
+      {
+        //console.log(i);
+        f[i]=API.prototype[i];
+      }
+    }
+  }
+  return f;
 };
-API.prototype.request = function(method, data, callback) {
+API.prototype.request = function(data, callback, method) {
   var self = this;
-  var method = method || "GET";
+  //console.log(self.defaultMethod);
+  var method = method || self.defaultMethod  || "GET";
   d(data);
   var data = data || {};
+  var returndata_array = [];
   var callback = callback || self.callback || undefined;
-  var path = self.dataath;
+  var path = self.path;
   if(arguments.length === 2 && typeof arguments[1] === "function") {
-    callback = params
+    callback = data
   }
   
   
@@ -126,7 +156,7 @@ API.prototype.request = function(method, data, callback) {
     path = self.staticPath;
   }
   
-  var options = {host:self.host, port:self.dataort, path:path, method:method};
+  var options = {host:self.host, port:self.port, path:path, method:method};
   d(options);
   //console.log(options);
   //console.log(data);
@@ -138,7 +168,14 @@ API.prototype.request = function(method, data, callback) {
       })
     }else {
       res.on("data", function(d) {
-        callback(d)
+        returndata_array.push(d);
+        if(self.partialCallback)
+        {
+          self.partialCallback(d);
+        }
+      });
+      res.on("end", function(){
+        callback(returndata_array.join(''));
       })
     }
   });
@@ -151,10 +188,10 @@ API.prototype.request = function(method, data, callback) {
   if(data && (method === 'POST' || method === 'PUT'))
   {
     //req.setHeader('Content-Length', data.length*2)
-    if(self.sendDataAsJson)
+    /*if(self.sendDataAsJson)
     {
       req.setHeader("Content-Type",'application/json');
-    }
+    }*/
     req.write(data);
   }
   req.end();
@@ -167,19 +204,19 @@ API.prototype.GET = function(data, callback) {
   var self = this;
   d(self);
   d(data);
-  return self.request("GET", data, callback)
+  return self.request( data, callback, "GET")
 };
 API.prototype.POST = function(data, callback) {
   var self = this;
-  return self.request("POST", data, callback)
+  return self.request(data, callback, "POST")
 };
 API.prototype.PUT = function(data, callback) {
   var self = this;
-  return self.request("PUT", data, callback)
+  return self.request( data, callback, "PUT")
 };
 API.prototype.DELETE = function(data, callback) {
   var self = this;
-  return self.request("DELETE", data, callback)
+  return self.request( data, callback, "DELETE")
 };
 API.prototype.addStatusCodeCallback = function(statusCode, callback) {
   var self = this;
@@ -189,6 +226,7 @@ API.prototype.addStatusCodeCallback = function(statusCode, callback) {
 
 API.prototype.enableSendAsJson = function(val) {
   var self = this;
+  self.setHeader("Content-Type",'application/json');
   if(val === false)
   {
     self.sendDataAsJson = false;
@@ -228,8 +266,10 @@ API.prototype.setStaticPath = function(path)
   return self;
 }
 
-var createAPI = function(uri_string) {
+var createAPI = function(uri_string, method, headers) {
   var uri_string = uri_string;
+  var method = method || undefined;
+  var headers = headers || undefined;
   var uri_object = {};
   if(uri_string && typeof uri_string === "string") {
     uri_object = parseuri(uri_string)
@@ -247,7 +287,17 @@ var createAPI = function(uri_string) {
       uri_object.queryKey[n] = decodeURIComponent(uri_object.queryKey[n])
     }
   }
-  return new API(uri_object)
+  var a = new API(uri_object);
+  if(method && typeof method === 'string')
+  {
+    a.defaultMethod = method.toUpperCase();
+  }
+  if(headers)
+  {
+    a.headers = headers;
+  }
+  a.prototype = API.prototype;
+  return a;
 };
 
 
@@ -256,12 +306,20 @@ module.exports.create = module.exports;
 module.exports.enableDebug = enableDebug;
 
 
-/*var api = createAPI("http://tupalo.com/de/api/easy/v1/spots?origin=&name=");
+/*var api = createAPI("http://tupalo.com/de/api/easy/v1/spots?origin=&name=", 'GET', {'fakeheader':'i am an fake header'});
 //console.log(api);
-api.addStatusCodeCallback(404, function(e) {
-  throw new Error("It's an 404");
-});
-api.GET({origin:"Schmalzhofgasse,Wien", name:"Biricz"}, function(d) {
+enableDebug(false);
+//console.log(api.defaultMethod);
+//api();
+//api.GET();
+//api.addStatusCodeCallback(404, function(e) {
+//  throw new Error("It's an 404");
+//});
+//console.log(api.prototype);
+//api.GET();
+api.port=80;
+api({origin:"Schmalzhofgasse,Wien", name:"Biricz"}, function(d) {
   console.log(d)
 });*/
+//console.log(api.defaultMethod);
 
